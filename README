@@ -1,0 +1,17 @@
+Usage: chicken-update-eggs [ --dry-run ] <from prefix> <to prefix>
+
+<from prefix> is the chicken installation prefix where to get the egg
+list to install into <to prefix>.
+
+Example:
+
+  $ chicken-update-eggs /usr/local/chicken-4.7.0 /usr/local/chicken-4.7.4
+
+would install all eggs from /usr/local/chicken-4.7.0 into
+/usr/local/chicken-4.7.4
+
+--dry-run (optional) only shows what is to be executed without
+actually executing it.
+
+This program can also be used to update all agg if you give it the
+same values for <from prefix> and <to prefix>.
