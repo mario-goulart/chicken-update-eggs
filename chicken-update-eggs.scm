@@ -64,7 +64,7 @@
          "    $ chicken-update-eggs /usr/local/chicken-4.7.0 /usr/local/chicken-4.7.4\n\n"
          "would install all eggs from /usr/local/chicken-4.7.0 into /usr/local/chicken-4.7.4\n\n"
          "--dry-run (optional) only shows what is to be executed without actually executing it.\n\n"
-         "This program can also be used to update all agg if you give it the same values for "
+         "This program can also be used to update all eggs if you give it the same values for "
          "<from prefix> and <to prefix>.")
   (when exit-code (exit exit-code)))
 
