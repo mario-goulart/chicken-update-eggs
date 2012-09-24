@@ -1,4 +1,15 @@
-(use posix utils srfi-1)
+(use posix utils srfi-1 http-client)
+
+(define henrietta-uri
+  (make-parameter "http://code.call-cc.org/cgi-bin/henrietta.cgi"))
+
+
+(define (list-remote-eggs)
+  (with-input-from-request
+   (string-append (henrietta-uri) "?list=1")
+   #f
+   read-file))
+
 
 (define (chicken-tool prefix tool)
   (let ((tool-file (make-pathname (list prefix "bin")
@@ -9,22 +20,21 @@
     tool-file))
 
 
-(define (list-eggs prefix)
-  (let ((setup-infos
-         (glob (make-pathname (list prefix
-                                    "lib"
-                                    "chicken"
-                                    (number->string (##sys#fudge 42)))
-                              "*" "setup-info")))
-        (eggs '()))
-    (for-each (lambda (setup-info)
-                (and-let* ((setup-info-data (with-input-from-file setup-info read))
-                           (egg (alist-ref 'egg-name setup-info-data))
-                           (egg (string->symbol (car egg))))
-                  (unless (memq egg eggs)
-                    (set! eggs (cons egg eggs)))))
-              setup-infos)
-    eggs))
+(define (list-local-eggs prefix)
+  (map (compose string->symbol pathname-file)
+       (glob (make-pathname (list prefix
+                                  "lib"
+                                  "chicken"
+                                  (number->string (##sys#fudge 42)))
+                            "*" "setup-info"))))
+
+
+(define egg?
+  (let ((remote-eggs #f))
+    (lambda (module)
+      (unless remote-eggs
+        (set! remote-eggs (list-remote-eggs)))
+      (and (memq module remote-eggs) #t))))
 
 
 (define (install-eggs! to-prefix eggs #!key dry-run?)
@@ -39,6 +49,10 @@
        (string-append chicken-install " "
                       (string-intersperse
                        (map symbol->string eggs)))))))
+
+
+(define (eggs-to-install installed-stuff)
+  (filter egg? installed-stuff))
 
 
 (define (usage #!optional exit-code)
@@ -68,5 +82,5 @@
         (to-prefix (last args))
         (dry-run? (and (member "--dry-run" args) #t)))
     (install-eggs! to-prefix
-                   (list-eggs from-prefix)
+                   (eggs-to-install (list-local-eggs from-prefix))
                    dry-run?: dry-run?)))
