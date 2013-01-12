@@ -13,5 +13,5 @@ would install all eggs from /usr/local/chicken-4.7.0 into
 --dry-run (optional) only shows what is to be executed without
 actually executing it.
 
-This program can also be used to update all agg if you give it the
+This program can also be used to update all eggs if you give it the
 same values for <from prefix> and <to prefix>.
