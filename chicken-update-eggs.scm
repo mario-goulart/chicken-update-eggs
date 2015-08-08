@@ -1,7 +1,36 @@
-(use posix utils srfi-1 irregex)
+(use extras posix utils srfi-1 irregex)
 
 (define *deploy-dir* (get-environment-variable "CUE_DEPLOY_DIR"))
 
+(define (die! fmt . args)
+  (apply fprintf (append (list (current-error-port)
+                               (string-append fmt "\n"))
+                         args))
+  (exit 1))
+
+(define list-remote-eggs
+  (let ((eggs #f)
+        (with-input-from-request #f))
+    (lambda ()
+      (unless eggs
+        (handle-exceptions exn
+          (die!
+           (string-append
+            "--skip-local-eggs requires the http-client egg. "
+            "You don't seem to have it installed.  To install it, run:\n\n"
+            "    chicken-install http-client"))
+          (set! with-input-from-request
+            (eval '(let() (use http-client) with-input-from-request))))
+        (handle-exceptions exn
+          (die! "Error fetching egg list.")
+          (set! eggs
+            (remove
+             string-null?
+             (with-input-from-request
+              "http://code.call-cc.org/cgi-bin/henrietta.cgi?list=1"
+              #f
+              read-lines)))))
+      (map string->symbol eggs))))
 
 (define (chicken-tool prefix tool)
   (let ((tool-file (make-pathname (if *deploy-dir*
@@ -35,9 +64,7 @@
 (define (install-eggs! to-prefix eggs #!key dry-run?)
   (let ((chicken-install (chicken-tool to-prefix "chicken-install")))
     (handle-exceptions exn
-      (begin
-        (print "Error installing eggs.  Aborting.")
-        (exit 1))
+      (die! "Error installing eggs.  Aborting.")
       ((if dry-run?
            print
            system*)
@@ -64,18 +91,20 @@
 
 
 (define (usage #!optional exit-code)
-  (print "Usage: " (pathname-strip-directory (program-name))
-         " [ <options> ] <from prefix> <to prefix>\n\n"
-         "<from prefix> is the chicken installation prefix where "
-         "to get the egg list to install into <to prefix>.\n\n"
-         "<options> are:\n"
-         "  --dry-run           only shows what is to be executed without actually executing it\n"
-         "  --skip-eggs=<eggs>  don't attempt to install <eggs> (a comma-sparated list og eggs)\n\n"
-         "Example:\n\n"
-         "    $ chicken-update-eggs /usr/local/chicken-4.7.0 /usr/local/chicken-4.7.4\n\n"
-         "would install all eggs from /usr/local/chicken-4.7.0 into /usr/local/chicken-4.7.4\n"
-         "This program can also be used to update all eggs if you give it the same values for "
-         "<from prefix> and <to prefix>.")
+  (print
+   "Usage: " (pathname-strip-directory (program-name))
+   " [ <options> ] <from prefix> <to prefix>\n\n"
+   "<from prefix> is the chicken installation prefix where "
+   "to get the egg list to install into <to prefix>.\n\n"
+   "<options> are:\n"
+   "  --dry-run           only shows what is to be executed without actually executing it\n"
+   "  --skip-eggs=<eggs>  don't attempt to install <eggs> (a comma-sparated list og eggs)\n"
+   "  --skip-local-eggs   don't attempt to install eggs which are not served by the egg server\n\n"
+   "Example:\n\n"
+   "    $ chicken-update-eggs /usr/local/chicken-4.7.0 /usr/local/chicken-4.7.4\n\n"
+   "would install all eggs from /usr/local/chicken-4.7.0 into /usr/local/chicken-4.7.4\n"
+   "This program can also be used to update all eggs if you give it the same values for "
+   "<from prefix> and <to prefix>.")
   (when exit-code (exit exit-code)))
 
 
@@ -92,11 +121,26 @@
          (to-prefix (last args))
          (skip (and-let* ((skip (cmd-line-arg '--skip-eggs args)))
                  (map string->symbol (string-split skip ","))))
-         (dry-run? (and (member "--dry-run" args) #t)))
-    (install-eggs! to-prefix
-                   (if skip
-                       (remove (lambda (egg)
-                                 (memq egg skip))
-                               (list-eggs from-prefix))
-                       (list-eggs from-prefix))
-                   dry-run?: dry-run?)))
+         (skip-local-eggs? (member "--skip-local-eggs" args))
+         (dry-run? (and (member "--dry-run" args) #t))
+         (eggs-without-skipped
+          (if skip
+              (remove (lambda (egg)
+                        (memq egg skip))
+                      (list-eggs from-prefix))
+              (list-eggs from-prefix)))
+         (eggs (if skip-local-eggs?
+                   (filter (lambda (egg)
+                             (memq egg (list-remote-eggs)))
+                           eggs-without-skipped)
+                   eggs-without-skipped)))
+    (install-eggs! to-prefix eggs dry-run?: dry-run?)
+    (when skip-local-eggs?
+      (let ((local-eggs (remove (lambda (egg)
+                                  (memq egg (list-remote-eggs)))
+                                eggs-without-skipped)))
+        (unless (null? local-eggs)
+          (print "\nThe following local eggs have been skipped:")
+          (for-each (lambda (local-egg)
+                      (print "  * " local-egg))
+                    local-eggs))))))
