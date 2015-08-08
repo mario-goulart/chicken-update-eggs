@@ -91,22 +91,41 @@
 
 
 (define (usage #!optional exit-code)
-  (print
-   "Usage: " (pathname-strip-directory (program-name))
-   " [ <options> ] <from prefix> <to prefix>\n\n"
-   "<from prefix> is the chicken installation prefix where "
-   "to get the egg list to install into <to prefix>.\n\n"
-   "<options> are:\n"
-   "  --dry-run           only shows what is to be executed without actually executing it\n"
-   "  --skip-eggs=<eggs>  don't attempt to install <eggs> (a comma-sparated list og eggs)\n"
-   "  --skip-local-eggs   don't attempt to install eggs which are not served by the egg server\n\n"
-   "Example:\n\n"
-   "    $ chicken-update-eggs /usr/local/chicken-4.7.0 /usr/local/chicken-4.7.4\n\n"
-   "would install all eggs from /usr/local/chicken-4.7.0 into /usr/local/chicken-4.7.4\n"
-   "This program can also be used to update all eggs if you give it the same values for "
-   "<from prefix> and <to prefix>.")
-  (when exit-code (exit exit-code)))
+  (let ((this (pathname-strip-directory (program-name)))
+        (port (if (and exit-code (not (zero? exit-code)))
+                  (current-error-port)
+                  (current-output-port))))
+    (display #<#EOF
+Usage: #this [<options>] <from prefix> <to prefix>
 
+<from prefix> is the chicken installation prefix where to obtain the
+egg list to install into <to prefix>
+
+<options> are:
+
+--dry-run
+  only shows what is to be executed without actually executing it.
+
+--skip-eggs=<eggs>
+  don't attempt to install <eggs> (a comma-sparated list of eggs).
+
+--skip-local-eggs
+  don't attempt to install eggs which are not served by the egg
+  server.
+
+Example:
+
+    $ chicken-update-eggs /usr/local/chicken-4.7.0 /usr/local/chicken-4.7.4
+
+would install all eggs from /usr/local/chicken-4.7.0 into
+/usr/local/chicken-4.7.4
+
+This program can also be used to update all eggs if you give it the
+same values for <from prefix> and <to prefix>.
+
+EOF
+    port)
+    (when exit-code (exit exit-code))))
 
 
 (let ((args (command-line-arguments)))
