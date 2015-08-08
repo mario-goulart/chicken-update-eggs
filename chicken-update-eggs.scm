@@ -110,13 +110,13 @@
 
 
 (let ((args (command-line-arguments)))
-  (when (or (null? args)
-            (null? (cdr args)))
-    (usage 1))
   (when (or (member "-h" args)
             (member "-help" args)
             (member "--help" args))
     (usage 0))
+  (when (or (null? args)
+            (null? (cdr args)))
+    (usage 1))
   (let* ((from-prefix (last (butlast args)))
          (to-prefix (last args))
          (skip (and-let* ((skip (cmd-line-arg '--skip-eggs args)))
